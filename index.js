@@ -1,15 +1,51 @@
-class ProductManager{
-    products;
+const fs= require("fs");
 
-    constructor(){
-        this.products= []
+class ProductManager{
+    #path= ""
+
+    constructor(path){
+        this.#path= path
     };
-        
-  
- addProduct(tittle, description, price, thumbnail, code, stock) {
-   
-    const newProduct= {
-        id: this.products.length,
+         
+
+ async getProducts() {
+    try{
+    const products= await fs.promises.readFile(this.#path, "utf-8")
+return JSON.parse(products);
+} catch{
+    return[]
+}
+ };
+
+
+ async getProductsById(id){
+let products= await this.getProducts();
+let findID= products.find(e => e.id === id);
+if(findID){
+    return findID
+} else{
+    throw new Error("El ID indicado no existe")
+}
+ };
+
+ async generadorIDS(){
+    let products= await this.getProducts()
+    let ids=  products.map(prod => prod.id)
+    let mayorID= Math.max(...ids)
+
+    if (mayorID === -Infinity) {
+        return 0
+    } else {
+        return mayorID
+    }
+    }
+ 
+
+async addProduct(tittle, description, price, thumbnail, code, stock) {
+   let IdGenerate= await this.generadorIDS()
+
+    const newProduct=  {
+        id: ++IdGenerate,
         tittle,
         description,
         price,
@@ -18,8 +54,10 @@ class ProductManager{
         stock
     }
 
-    let sameCode= this.products.find(prod =>prod.code === code);
-    let verificar = Object.values(this.products)
+    let products=  await this.getProducts()
+    let sameCode= products.find(prod =>prod.code === code);
+    let verificar = Object.values(newProduct)
+
     if (sameCode){
         throw new Error(`El producto ${newProduct.tittle} NO ha sido cargado ya que la propiedad "code" está repetida, ${sameCode.tittle} tiene el mismo valor.`);
     }
@@ -27,30 +65,63 @@ class ProductManager{
         throw new Error(`El producto ${newProduct.tittle} NO ha sido cargado, debe completar todos los datos.`);
     }
 
-this.products.push(newProduct);
+    products= [...products, newProduct];
+    console.log(`${newProduct.tittle} cargado correctamente`);
+    await fs.promises.writeFile(this.#path, JSON.stringify(products))
+
+
  };
 
-
- getProducts(){
-    return this.products;
- };
-
- getProductsById(id){
-let searchId= this.products.find(prod => prod.id === id);
-if(searchId){
-    return searchId;
-}else{
-    throw new Error(`El producto con el ID indicado no existe`);
+ async updateProduct(id, propModify){
+    let product= await this.getProducts();
+let searchID= product.find(prod => prod.id === id)
+if(!searchID){
+    throw new Error('No se encontró ningún producto con ese ID.');
 }
- };
+if (Object.keys(propModify).includes('id')){
+    throw new Error('No es posible modificar el ID de un producto.')
+}
 
-};
+if(Object.keys(propModify).includes("code")){
+    let sameCode = product.some(i => i.code === propModify.code)
+            if (sameCode){
+                throw new Error('No es posible modificar la propiedad code por una que ya exista.')
+            }
+}
+
+searchID= {...searchID, propModify};
+let newArray= product.filter(prods => prods.id !== id)
+newArray= [...newArray, searchID];
+await fs.promises.writeFile(this.#path, JSON.stringify(newArray));
+console.log('Modificación realizada con éxito.')
+}
+
+
+async deleteProduct(id){
+    let product= await this.getProducts();
+    let searchIdDelete= product.filter(i => i.id !==id)
+await fs.promises.writeFile(this.#path, JSON.stringify(searchIdDelete))
+console.log('Producto eliminado con éxito')
+}
+
+
+}
 
 
 
-const manager= new ProductManager();
-manager.addProduct("Mate giroscopio", "Mate de plástico anti-vuelco", 2.680, "Thumbnail", "50", 3)
-manager.addProduct("Florero", "Florero Nórdico minimaalista", 2500, "thumbnail", "51", 5)
 
-//  console.log(manager.getProductsById(1));
- console.log(manager.getProducts());
+
+const main= async()=>{
+    const manager= new ProductManager("./products.json");
+//     await manager.addProduct("Mate giroscopio", "Mate de plástico anti-vuelco", 2.680, "Thumbnail", "52", 4)
+//    await manager.addProduct("Florero", "Florero Nórdico minimaalista", 2500, "thumbnail", "51", 5)
+    
+await manager.deleteProduct(2)
+console.log(await manager.getProducts())
+}
+
+
+main()
+
+
+
